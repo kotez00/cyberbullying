@@ -33,6 +33,12 @@ import sys
 # Configure basic error logging to a file so startup errors are captured in deployment logs
 logging.basicConfig(filename='error.log', level=logging.ERROR, format='%(asctime)s %(levelname)s %(message)s')
 
+
+# Set Streamlit page config (must be at the top, after health check)
+st.set_page_config(
+    page_title="Cyberbullying Detection System",
+    page_icon="🛡️",
+    layout="wide",
     initial_sidebar_state="expanded"
 )
 
