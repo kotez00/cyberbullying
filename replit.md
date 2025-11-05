@@ -2,7 +2,16 @@
 
 ## Overview
 
-This is a machine learning-powered cyberbullying detection system built with Streamlit. The application analyzes text input to identify potential cyberbullying or hate speech using Natural Language Processing (NLP) and classification algorithms. The system provides real-time predictions with confidence scores and uses LIME (Local Interpretable Model-agnostic Explanations) to explain which words contribute to the classification decision.
+This is a machine learning-powered cyberbullying detection system built with Streamlit. The application analyzes text input to identify potential cyberbullying or hate speech using Natural Language Processing (NLP) and classification algorithms. The system provides real-time predictions with confidence scores and uses LIME (Local Interpretable Model-agnostic Explanations) to explain which words contribute to the classification decision. Features a modern, gradient-based UI with smooth animations and card-style components for enhanced user experience.
+
+## Recent Changes
+
+**November 5, 2025**: Enhanced UI with modern design
+- Added gradient backgrounds and custom Poppins font
+- Implemented smooth CSS animations (fadeIn, slideInUp)
+- Created interactive card-based action suggestions with hover effects
+- Enhanced word impact displays with color-coded gradients
+- Improved visual hierarchy and spacing throughout the application
 
 ## User Preferences
 
@@ -17,7 +26,17 @@ Preferred communication style: Simple, everyday language.
   - Text input area for message analysis
   - Color-coded result boxes (safe/warning/danger) based on prediction confidence
   - Interactive explanations using LIME visualizations
-- **Styling**: Custom CSS classes for visual feedback (safe-box, warning-box, danger-box)
+  - Action suggestion cards with hover effects
+  - Animated word impact displays
+- **Styling**: Modern gradient-based design with:
+  - Purple gradient background (667eea to 764ba2)
+  - Custom Poppins font family from Google Fonts
+  - Smooth CSS animations (fadeIn, slideInUp, fadeInDown)
+  - Card-based action suggestions with hover effects
+  - Gradient alert boxes with shadows
+  - Enhanced buttons with transitions
+  - Color-coded word impact cards (green for safe, red for cyberbullying)
+- **Design Decision**: Enhanced visual appeal with gradients, animations, and modern UI patterns to create an engaging, supportive user experience
 
 ### Backend Architecture
 - **ML Pipeline**: 
