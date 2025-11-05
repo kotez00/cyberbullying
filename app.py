@@ -187,32 +187,59 @@ def load_models():
         return
 
     # If model files are missing, start training in a background thread so Streamlit can finish startup quickly.
+    # IMPORTANT: background threads must not modify `st.session_state` directly (Streamlit session state is not thread-safe).
+    # We'll start training in a background thread which will write a flag file when done; the main thread will detect the flag
+    # and then load the pickles into session state.
+    if os.path.exists('training_done.flag'):
+        # Training finished previously in background; load results now
+        try:
+            with open('nb_model.pkl', 'rb') as f:
+                st.session_state.nb_model = pickle.load(f)
+            with open('rf_model.pkl', 'rb') as f:
+                st.session_state.rf_model = pickle.load(f)
+            with open('vectorizer.pkl', 'rb') as f:
+                st.session_state.vectorizer = pickle.load(f)
+            if st.session_state.processor is None:
+                st.session_state.processor = TextProcessor()
+            if st.session_state.explainer is None:
+                st.session_state.explainer = LimeTextExplainer(class_names=['Safe', 'Cyberbullying'])
+            st.session_state.models_loaded = True
+            st.session_state.training_in_progress = False
+        except Exception as e:
+            st.error(f"Failed to load models after background training: {e}")
+            st.session_state.models_loaded = False
+            st.session_state.training_in_progress = False
+        finally:
+            try:
+                os.remove('training_done.flag')
+            except Exception:
+                pass
+        return
+
     if not st.session_state.training_in_progress:
         st.session_state.training_in_progress = True
 
-        def _train_and_load():
+        def _train_only():
             try:
                 train_models()
-                # After training completes, load the saved pickles
-                with open('nb_model.pkl', 'rb') as f:
-                    st.session_state.nb_model = pickle.load(f)
-                with open('rf_model.pkl', 'rb') as f:
-                    st.session_state.rf_model = pickle.load(f)
-                with open('vectorizer.pkl', 'rb') as f:
-                    st.session_state.vectorizer = pickle.load(f)
-                if st.session_state.processor is None:
-                    st.session_state.processor = TextProcessor()
-                if st.session_state.explainer is None:
-                    st.session_state.explainer = LimeTextExplainer(class_names=['Safe', 'Cyberbullying'])
-                st.session_state.models_loaded = True
             except Exception as e:
-                # Write error to session so UI can show it
-                st.session_state.training_error = str(e)
-                st.session_state.models_loaded = False
+                # Persist the traceback to a file for diagnostics
+                try:
+                    with open('training_error.log', 'w', encoding='utf-8') as f:
+                        import traceback as _tb
+                        f.write(str(e) + '\n')
+                        _tb.print_exc(file=f)
+                except Exception:
+                    pass
             finally:
-                st.session_state.training_in_progress = False
+                # signal completion by creating a flag file; main thread will pick this up
+                try:
+                    with open('training_done.flag', 'w') as f:
+                        f.write('done')
+                except Exception:
+                    pass
 
-        thread = threading.Thread(target=_train_and_load, daemon=True)
+        thread = threading.Thread(target=_train_only, daemon=True)
         thread.start()
 
 def predict_text(text, model_type='nb'):
