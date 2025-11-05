@@ -15,45 +15,254 @@ st.set_page_config(
 # Custom CSS for better styling
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+    
+    /* Global Styles */
+    .main {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        font-family: 'Poppins', sans-serif;
+    }
+    
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        margin: 1rem auto;
+    }
+    
+    /* Headers */
     .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #1f77b4;
+        font-size: 3.5rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
         text-align: center;
         margin-bottom: 0.5rem;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        animation: fadeInDown 1s ease-in-out;
     }
+    
     .sub-header {
         text-align: center;
-        color: #666;
+        color: #555;
+        font-size: 1.2rem;
         margin-bottom: 2rem;
+        font-weight: 300;
+        animation: fadeIn 1.5s ease-in-out;
     }
+    
+    /* Animated Boxes */
+    @keyframes fadeInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Alert Boxes with Enhanced Styling */
     .warning-box {
-        background-color: #fff3cd;
-        border-left: 5px solid #ffc107;
-        padding: 1rem;
-        margin: 1rem 0;
-        border-radius: 5px;
+        background: linear-gradient(135deg, #FFF9C4 0%, #FFF59D 100%);
+        border-left: 6px solid #FFA000;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        border-radius: 15px;
+        box-shadow: 0 8px 16px rgba(255, 160, 0, 0.2);
+        animation: slideInUp 0.6s ease-out;
     }
+    
     .danger-box {
-        background-color: #f8d7da;
-        border-left: 5px solid #dc3545;
-        padding: 1rem;
-        margin: 1rem 0;
-        border-radius: 5px;
+        background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
+        border-left: 6px solid #E53935;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        border-radius: 15px;
+        box-shadow: 0 8px 16px rgba(229, 57, 53, 0.2);
+        animation: slideInUp 0.6s ease-out;
     }
+    
     .safe-box {
-        background-color: #d4edda;
-        border-left: 5px solid #28a745;
-        padding: 1rem;
-        margin: 1rem 0;
-        border-radius: 5px;
+        background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+        border-left: 6px solid #43A047;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        border-radius: 15px;
+        box-shadow: 0 8px 16px rgba(67, 160, 71, 0.2);
+        animation: slideInUp 0.6s ease-out;
     }
+    
     .info-box {
-        background-color: #d1ecf1;
-        border-left: 5px solid #17a2b8;
+        background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+        border-left: 6px solid #1E88E5;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        border-radius: 15px;
+        box-shadow: 0 8px 16px rgba(30, 136, 229, 0.2);
+        animation: slideInUp 0.6s ease-out;
+    }
+    
+    /* Action Cards */
+    .action-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 15px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+    
+    .action-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        border-color: #667eea;
+    }
+    
+    /* Word Impact Cards */
+    .word-impact-positive {
+        background: linear-gradient(135deg, #C8E6C9 0%, #A5D6A7 100%);
         padding: 1rem;
-        margin: 1rem 0;
-        border-radius: 5px;
+        margin: 0.5rem 0;
+        border-radius: 12px;
+        border-left: 4px solid #43A047;
+        box-shadow: 0 4px 8px rgba(67, 160, 71, 0.15);
+        transition: all 0.3s ease;
+        animation: slideInUp 0.4s ease-out;
+    }
+    
+    .word-impact-positive:hover {
+        transform: translateX(5px);
+        box-shadow: 0 6px 12px rgba(67, 160, 71, 0.25);
+    }
+    
+    .word-impact-negative {
+        background: linear-gradient(135deg, #FFCDD2 0%, #EF9A9A 100%);
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border-radius: 12px;
+        border-left: 4px solid #E53935;
+        box-shadow: 0 4px 8px rgba(229, 57, 53, 0.15);
+        transition: all 0.3s ease;
+        animation: slideInUp 0.4s ease-out;
+    }
+    
+    .word-impact-negative:hover {
+        transform: translateX(5px);
+        box-shadow: 0 6px 12px rgba(229, 57, 53, 0.25);
+    }
+    
+    /* Sidebar Styling */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+        color: white;
+    }
+    
+    [data-testid="stSidebar"] .stMarkdown {
+        color: rgba(255, 255, 255, 0.9);
+    }
+    
+    /* Button Enhancements */
+    .stButton > button {
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        border: none;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Text Area Styling */
+    .stTextArea textarea {
+        border-radius: 12px;
+        border: 2px solid #e0e0e0;
+        transition: all 0.3s ease;
+        font-family: 'Poppins', sans-serif;
+    }
+    
+    .stTextArea textarea:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+    }
+    
+    /* Metric Cards */
+    [data-testid="stMetricValue"] {
+        font-size: 2rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    /* Expander Styling */
+    .streamlit-expanderHeader {
+        background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .streamlit-expanderHeader:hover {
+        background: linear-gradient(135deg, #e8ecf1 0%, #dce2e9 100%);
+    }
+    
+    /* Footer */
+    .footer {
+        text-align: center;
+        padding: 2rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        color: white;
+        margin-top: 2rem;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Loading Spinner */
+    .stSpinner > div {
+        border-top-color: #667eea;
+    }
+    
+    /* Section Headers */
+    h2, h3 {
+        color: #333;
+        font-weight: 600;
+    }
+    
+    /* Divider Enhancement */
+    hr {
+        margin: 2rem 0;
+        border: none;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, #667eea, transparent);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -139,19 +348,37 @@ def display_action_suggestions(is_cyberbullying, confidence):
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            st.markdown("#### 🚫 Report")
-            st.write("Report this content to platform moderators")
-            st.info("This helps protect the community")
+            st.markdown("""
+            <div class="action-card">
+                <h4 style="color: #E53935;">🚫 Report</h4>
+                <p>Report this content to platform moderators</p>
+                <p style="background: #FFEBEE; padding: 0.5rem; border-radius: 8px; font-size: 0.9rem; color: #666;">
+                    This helps protect the community
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
         
         with col2:
-            st.markdown("#### 🔇 Block")
-            st.write("Block the sender to prevent further contact")
-            st.info("Protect yourself from harassment")
+            st.markdown("""
+            <div class="action-card">
+                <h4 style="color: #F57C00;">🔇 Block</h4>
+                <p>Block the sender to prevent further contact</p>
+                <p style="background: #FFF3E0; padding: 0.5rem; border-radius: 8px; font-size: 0.9rem; color: #666;">
+                    Protect yourself from harassment
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
         
         with col3:
-            st.markdown("#### 💬 Contact Support")
-            st.write("Reach out to support or trusted adults")
-            st.info("Get help from professionals")
+            st.markdown("""
+            <div class="action-card">
+                <h4 style="color: #1E88E5;">💬 Contact Support</h4>
+                <p>Reach out to support or trusted adults</p>
+                <p style="background: #E3F2FD; padding: 0.5rem; border-radius: 8px; font-size: 0.9rem; color: #666;">
+                    Get help from professionals
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
         
         st.markdown("---")
         st.markdown("#### Additional Resources")
@@ -281,17 +508,21 @@ def main():
                 if exp_list:
                     for word, weight in exp_list:
                         if weight > 0:
-                            color = "#ffcccc"  # Light red for cyberbullying indicators
+                            css_class = "word-impact-negative"
                             direction = "towards Cyberbullying"
                             icon = "⚠️"
                         else:
-                            color = "#ccffcc"  # Light green for safe indicators
+                            css_class = "word-impact-positive"
                             direction = "towards Safe"
                             icon = "✅"
                         
                         st.markdown(f"""
-                        <div style="background-color: {color}; padding: 0.5rem; margin: 0.3rem 0; border-radius: 5px;">
-                            {icon} <strong>"{word}"</strong> - Weight: {abs(weight):.3f} ({direction})
+                        <div class="{css_class}">
+                            <span style="font-size: 1.2rem;">{icon}</span> 
+                            <strong style="font-size: 1.1rem;">"{word}"</strong> 
+                            <span style="float: right; font-weight: 600;">Impact: {abs(weight):.3f}</span>
+                            <br>
+                            <small style="color: #666;">{direction}</small>
                         </div>
                         """, unsafe_allow_html=True)
                 else:
@@ -312,9 +543,10 @@ def main():
     # Footer
     st.markdown("---")
     st.markdown("""
-    <div style="text-align: center; color: #666; padding: 1rem;">
-        <p>💙 Remember: Online safety is important. Be kind, report harmful content, and seek help when needed.</p>
-        <p style="font-size: 0.8rem;">This tool uses AI and may not be 100% accurate. Use your best judgment.</p>
+    <div class="footer">
+        <h3 style="color: white; margin-bottom: 1rem;">💙 Stay Safe Online</h3>
+        <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">Remember: Online safety is important. Be kind, report harmful content, and seek help when needed.</p>
+        <p style="font-size: 0.9rem; opacity: 0.9;">This tool uses AI and may not be 100% accurate. Use your best judgment.</p>
     </div>
     """, unsafe_allow_html=True)
 
