@@ -9,34 +9,30 @@ from text_processor import TextProcessor
 from train_model import train_models
 import logging
 import traceback
+    # Also write to stderr so Streamlit Cloud captures it in logs
+# Install the global exception hook
+
+# --- Health check: respond before any heavy import or logic ---
+import os
+import streamlit as st
+if os.environ.get("STREAMLIT_HEALTH_CHECK") == "1":
+    st.write("ok")
+    st.stop()
+
+import pickle
+import threading
+import numpy as np
+import pandas as pd
+from lime.lime_text import LimeTextExplainer
+from text_processor import TextProcessor
+from train_model import train_models
+import logging
+import traceback
 import sys
 
 # Configure basic error logging to a file so startup errors are captured in deployment logs
 logging.basicConfig(filename='error.log', level=logging.ERROR, format='%(asctime)s %(levelname)s %(message)s')
 
-def log_unhandled_exception(exc_type, exc_value, exc_traceback):
-    if issubclass(exc_type, KeyboardInterrupt):
-        # Let keyboard interrupts through
-        sys.__excepthook__(exc_type, exc_value, exc_traceback)
-        return
-    tb = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
-    logging.error("Unhandled exception:\n%s", tb)
-    # Also write to stderr so Streamlit Cloud captures it in logs
-    print(tb, file=sys.stderr)
-
-# Install the global exception hook
-sys.excepthook = log_unhandled_exception
-
-# Initialize logging first
-import logging
-logging.basicConfig(filename='error.log', level=logging.INFO, 
-                   format='%(asctime)s %(levelname)s %(message)s')
-
-# Page configuration with minimal settings for health check
-st.set_page_config(
-    page_title="Cyberbullying Detection System",
-    page_icon="🛡️",
-    layout="wide",
     initial_sidebar_state="expanded"
 )
 
