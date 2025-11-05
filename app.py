@@ -27,6 +27,11 @@ def log_unhandled_exception(exc_type, exc_value, exc_traceback):
 # Install the global exception hook
 sys.excepthook = log_unhandled_exception
 
+# Handle Streamlit Cloud health checks before any heavy operations
+if os.getenv('STREAMLIT_HEALTH_CHECK') == '1':
+    st.success('Health check successful')
+    st.stop()
+
 # Page configuration
 st.set_page_config(
     page_title="Cyberbullying Detection System",
