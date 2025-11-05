@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pickle
 import os
 import numpy as np
@@ -531,7 +532,7 @@ def main():
                 # Display HTML explanation
                 with st.expander("📄 View Detailed Explanation"):
                     html_exp = explanation.as_html(labels=(1,))
-                    st.components.v1.html(html_exp, height=400, scrolling=True)
+                    components.html(html_exp, height=400, scrolling=True)
             
             # Action Suggestions
             st.markdown("---")
