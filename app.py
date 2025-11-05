@@ -42,11 +42,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Handle health checks immediately after page config
-if 'healthz' in st.get_script_run_ctx().request.path_info:
-    logging.info("Health check request received")
-    st.markdown("OK")
-    st.stop()
+
 
 # Custom CSS for better styling
 st.markdown("""
