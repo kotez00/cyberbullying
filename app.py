@@ -2,8 +2,10 @@ import streamlit as st
 import pickle
 import os
 import numpy as np
+import pandas as pd
 from lime.lime_text import LimeTextExplainer
 from text_processor import TextProcessor
+from train_model import train_models
 
 # Page configuration
 st.set_page_config(
@@ -168,6 +170,160 @@ def display_action_suggestions(is_cyberbullying, confidence):
         </div>
         """, unsafe_allow_html=True)
 
+def train_with_dataset():
+    """Interface for uploading and training with custom datasets"""
+    st.markdown("## 📚 Upload Training Dataset")
+    st.write("Upload a CSV file with your custom training data to improve model accuracy.")
+    
+    st.markdown("""
+    <div class="info-box">
+        <strong>📋 Dataset Format Requirements:</strong><br>
+        • CSV file with two columns: <code>text</code> and <code>label</code><br>
+        • <code>text</code>: The message or comment content (string)<br>
+        • <code>label</code>: 0 for safe content, 1 for cyberbullying/hate speech (numeric)<br>
+        • <strong>Minimum 4 examples</strong> (at least one of each class)<br>
+        • <strong>Both classes required</strong> (need examples of 0 and 1)<br>
+        • No missing values allowed<br><br>
+        Example: <code>text,label</code><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<code>"Have a great day!",0</code><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<code>"You are stupid",1</code>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    uploaded_file = st.file_uploader(
+        "Choose a CSV file",
+        type=['csv'],
+        help="Upload a CSV file with 'text' and 'label' columns"
+    )
+    
+    if uploaded_file is not None:
+        try:
+            # Read the CSV file
+            df = pd.read_csv(uploaded_file)
+            
+            # Validate columns
+            if 'text' not in df.columns or 'label' not in df.columns:
+                st.error("❌ Error: CSV must have 'text' and 'label' columns!")
+                return
+            
+            # Drop rows with missing values
+            original_len = len(df)
+            df = df.dropna(subset=['text', 'label'])
+            if len(df) < original_len:
+                st.warning(f"⚠️ Removed {original_len - len(df)} rows with missing values.")
+            
+            # Coerce labels to integers (handle string "0"/"1")
+            try:
+                df['label'] = pd.to_numeric(df['label'], errors='coerce').astype('Int64')
+            except:
+                st.error("❌ Error: Labels must be numeric (0 or 1)!")
+                return
+            
+            # Drop any rows where label conversion failed
+            df = df.dropna(subset=['label'])
+            
+            # Validate labels are 0 or 1
+            if not df['label'].isin([0, 1]).all():
+                st.error("❌ Error: Labels must be 0 (safe) or 1 (cyberbullying)!")
+                return
+            
+            # Check minimum sample size
+            if len(df) < 4:
+                st.error(f"❌ Error: Need at least 4 examples for training. You have {len(df)}.")
+                return
+            
+            # Check for both classes
+            unique_labels = df['label'].unique()
+            if len(unique_labels) < 2:
+                missing_class = "safe (0)" if 0 not in unique_labels else "cyberbullying (1)"
+                st.error(f"❌ Error: Dataset must contain both classes. Missing: {missing_class}")
+                st.info("💡 Your dataset needs examples of both safe content (label=0) and cyberbullying (label=1).")
+                return
+            
+            # Show preview
+            st.success(f"✅ File uploaded successfully! Found {len(df)} examples.")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                safe_count = (df['label'] == 0).sum()
+                st.metric("Safe Examples", safe_count)
+            with col2:
+                bully_count = (df['label'] == 1).sum()
+                st.metric("Cyberbullying Examples", bully_count)
+            
+            with st.expander("📄 Preview Dataset (first 10 rows)"):
+                st.dataframe(df.head(10))
+            
+            # Training options
+            st.markdown("### ⚙️ Training Options")
+            combine_data = st.checkbox(
+                "Combine with default training data",
+                value=True,
+                help="Include the built-in training examples along with your custom data"
+            )
+            
+            if st.button("🚀 Train Models with This Dataset", type="primary"):
+                with st.spinner('Training models with your dataset... This may take a moment.'):
+                    try:
+                        # Train models
+                        nb_model, rf_model, vectorizer, accuracy = train_models(
+                            custom_data=df,
+                            combine_with_default=combine_data
+                        )
+                        
+                        # Update session state
+                        st.session_state.nb_model = nb_model
+                        st.session_state.rf_model = rf_model
+                        st.session_state.vectorizer = vectorizer
+                        st.session_state.models_loaded = True
+                        
+                        # Display results
+                        st.success("✅ Models trained successfully!")
+                        
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Total Training Samples", accuracy['total_samples'])
+                        with col2:
+                            st.metric("Naive Bayes Accuracy", f"{accuracy['naive_bayes']*100:.1f}%")
+                        with col3:
+                            st.metric("Random Forest Accuracy", f"{accuracy['random_forest']*100:.1f}%")
+                        
+                        st.info("💡 Your models have been updated! Switch to the 'Detect Cyberbullying' tab to test them.")
+                        
+                    except Exception as e:
+                        st.error(f"❌ Training failed: {str(e)}")
+        
+        except Exception as e:
+            st.error(f"❌ Error reading file: {str(e)}")
+    
+    # Download template
+    st.markdown("---")
+    st.markdown("### 📥 Download Template")
+    st.write("Need a template to get started? Download this sample CSV file:")
+    
+    template_data = {
+        'text': [
+            'Have a wonderful day',
+            'Thank you for your help',
+            'You are so stupid',
+            'Nobody likes you',
+            'Great work on the project',
+            'Kill yourself',
+            'I appreciate your effort',
+            'You are worthless'
+        ],
+        'label': [0, 0, 1, 1, 0, 1, 0, 1]
+    }
+    template_df = pd.DataFrame(template_data)
+    
+    csv = template_df.to_csv(index=False)
+    st.download_button(
+        label="📄 Download CSV Template",
+        data=csv,
+        file_name="training_template.csv",
+        mime="text/csv"
+    )
+
 def main():
     # Header
     st.markdown('<div class="main-header">🛡️ Cyberbullying Detection System</div>', unsafe_allow_html=True)
@@ -194,120 +350,128 @@ def main():
         st.write("✓ AI-powered detection")
         st.write("✓ LIME explanations")
         st.write("✓ Action suggestions")
+        st.write("✓ Custom dataset training")
         
         st.markdown("---")
         st.markdown("### 🔒 Privacy")
         st.info("All analysis is done locally. Your text is not stored or shared.")
     
-    # Main content
-    st.markdown("## 📝 Enter Text to Analyze")
+    # Create tabs
+    tab1, tab2 = st.tabs(["🔍 Detect Cyberbullying", "📚 Train with Dataset"])
     
-    user_input = st.text_area(
-        "Paste or type the text you want to check:",
-        height=150,
-        placeholder="Example: Type or paste a message, comment, or post here...",
-        help="Enter any text to check if it contains cyberbullying or hate speech"
-    )
-    
-    col1, col2, col3 = st.columns([1, 1, 2])
-    with col1:
-        analyze_button = st.button("🔍 Analyze Text", type="primary", use_container_width=True)
-    with col2:
-        clear_button = st.button("🗑️ Clear", use_container_width=True)
-    
-    if clear_button:
-        st.rerun()
-    
-    if analyze_button and user_input.strip():
-        model_type = 'nb' if model_choice == "Naive Bayes" else 'rf'
+    with tab1:
+        # Main content
+        st.markdown("## 📝 Enter Text to Analyze")
         
-        with st.spinner('Analyzing text...'):
-            # Make prediction
-            prediction, probabilities, processed_text = predict_text(user_input, model_type)
-            is_cyberbullying = prediction == 1
-            confidence = probabilities[1] if is_cyberbullying else probabilities[0]
+        user_input = st.text_area(
+            "Paste or type the text you want to check:",
+            height=150,
+            placeholder="Example: Type or paste a message, comment, or post here...",
+            help="Enter any text to check if it contains cyberbullying or hate speech"
+        )
+        
+        col1, col2, col3 = st.columns([1, 1, 2])
+        with col1:
+            analyze_button = st.button("🔍 Analyze Text", type="primary", use_container_width=True)
+        with col2:
+            clear_button = st.button("🗑️ Clear", use_container_width=True)
+        
+        if clear_button:
+            st.rerun()
+        
+        if analyze_button and user_input.strip():
+            model_type = 'nb' if model_choice == "Naive Bayes" else 'rf'
             
-            # Display results
-            st.markdown("---")
-            st.markdown("## 📊 Analysis Results")
-            
-            # Result box
-            if is_cyberbullying:
-                st.markdown(f"""
-                <div class="danger-box">
-                    <h3>⚠️ Cyberbullying Detected</h3>
-                    <p><strong>Confidence:</strong> {confidence*100:.1f}%</p>
-                    <p>This text may contain cyberbullying or hate speech.</p>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                <div class="safe-box">
-                    <h3>✅ Text Appears Safe</h3>
-                    <p><strong>Confidence:</strong> {confidence*100:.1f}%</p>
-                    <p>No cyberbullying or hate speech detected.</p>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            # Confidence scores
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric("Safe Probability", f"{probabilities[0]*100:.1f}%")
-            with col2:
-                st.metric("Cyberbullying Probability", f"{probabilities[1]*100:.1f}%")
-            
-            # Show preprocessed text
-            with st.expander("🔧 View Preprocessed Text"):
-                st.markdown("**Original Text:**")
-                st.write(user_input)
-                st.markdown("**After Preprocessing:**")
-                st.write(processed_text if processed_text else "(empty after preprocessing)")
-                st.caption("Emojis, URLs, mentions, and special characters were removed for analysis")
-            
-            # LIME Explanation
-            st.markdown("---")
-            st.markdown("## 🔍 AI Decision Explanation")
-            st.write("The highlighted words below show which parts of the text influenced the AI's decision:")
-            
-            with st.spinner('Generating explanation...'):
-                explanation = get_lime_explanation(user_input, model_type)
+            with st.spinner('Analyzing text...'):
+                # Make prediction
+                prediction, probabilities, processed_text = predict_text(user_input, model_type)
+                is_cyberbullying = prediction == 1
+                confidence = probabilities[1] if is_cyberbullying else probabilities[0]
                 
-                # Get explanation as list
-                exp_list = explanation.as_list(label=1)
+                # Display results
+                st.markdown("---")
+                st.markdown("## 📊 Analysis Results")
                 
-                # Display word importance
-                st.markdown("### Key Words and Their Impact")
-                
-                if exp_list:
-                    for word, weight in exp_list:
-                        if weight > 0:
-                            color = "#ffcccc"  # Light red for cyberbullying indicators
-                            direction = "towards Cyberbullying"
-                            icon = "⚠️"
-                        else:
-                            color = "#ccffcc"  # Light green for safe indicators
-                            direction = "towards Safe"
-                            icon = "✅"
-                        
-                        st.markdown(f"""
-                        <div style="background-color: {color}; padding: 0.5rem; margin: 0.3rem 0; border-radius: 5px;">
-                            {icon} <strong>"{word}"</strong> - Weight: {abs(weight):.3f} ({direction})
-                        </div>
-                        """, unsafe_allow_html=True)
+                # Result box
+                if is_cyberbullying:
+                    st.markdown(f"""
+                    <div class="danger-box">
+                        <h3>⚠️ Cyberbullying Detected</h3>
+                        <p><strong>Confidence:</strong> {confidence*100:.1f}%</p>
+                        <p>This text may contain cyberbullying or hate speech.</p>
+                    </div>
+                    """, unsafe_allow_html=True)
                 else:
-                    st.info("No significant words found in the analysis.")
+                    st.markdown(f"""
+                    <div class="safe-box">
+                        <h3>✅ Text Appears Safe</h3>
+                        <p><strong>Confidence:</strong> {confidence*100:.1f}%</p>
+                        <p>No cyberbullying or hate speech detected.</p>
+                    </div>
+                    """, unsafe_allow_html=True)
                 
-                # Display HTML explanation
-                with st.expander("📄 View Detailed Explanation"):
-                    html_exp = explanation.as_html(labels=(1,))
-                    st.components.v1.html(html_exp, height=400, scrolling=True)
-            
-            # Action Suggestions
-            st.markdown("---")
-            display_action_suggestions(is_cyberbullying, confidence)
+                # Confidence scores
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Safe Probability", f"{probabilities[0]*100:.1f}%")
+                with col2:
+                    st.metric("Cyberbullying Probability", f"{probabilities[1]*100:.1f}%")
+                
+                # Show preprocessed text
+                with st.expander("🔧 View Preprocessed Text"):
+                    st.markdown("**Original Text:**")
+                    st.write(user_input)
+                    st.markdown("**After Preprocessing:**")
+                    st.write(processed_text if processed_text else "(empty after preprocessing)")
+                    st.caption("Emojis, URLs, mentions, and special characters were removed for analysis")
+                
+                # LIME Explanation
+                st.markdown("---")
+                st.markdown("## 🔍 AI Decision Explanation")
+                st.write("The highlighted words below show which parts of the text influenced the AI's decision:")
+                
+                with st.spinner('Generating explanation...'):
+                    explanation = get_lime_explanation(user_input, model_type)
+                    
+                    # Get explanation as list
+                    exp_list = explanation.as_list(label=1)
+                    
+                    # Display word importance
+                    st.markdown("### Key Words and Their Impact")
+                    
+                    if exp_list:
+                        for word, weight in exp_list:
+                            if weight > 0:
+                                color = "#ffcccc"  # Light red for cyberbullying indicators
+                                direction = "towards Cyberbullying"
+                                icon = "⚠️"
+                            else:
+                                color = "#ccffcc"  # Light green for safe indicators
+                                direction = "towards Safe"
+                                icon = "✅"
+                            
+                            st.markdown(f"""
+                            <div style="background-color: {color}; padding: 0.5rem; margin: 0.3rem 0; border-radius: 5px;">
+                                {icon} <strong>"{word}"</strong> - Weight: {abs(weight):.3f} ({direction})
+                            </div>
+                            """, unsafe_allow_html=True)
+                    else:
+                        st.info("No significant words found in the analysis.")
+                    
+                    # Display HTML explanation
+                    with st.expander("📄 View Detailed Explanation"):
+                        html_exp = explanation.as_html(labels=(1,))
+                        st.components.v1.html(html_exp, height=400, scrolling=True)
+                
+                # Action Suggestions
+                st.markdown("---")
+                display_action_suggestions(is_cyberbullying, confidence)
+        
+        elif analyze_button:
+            st.warning("⚠️ Please enter some text to analyze.")
     
-    elif analyze_button:
-        st.warning("⚠️ Please enter some text to analyze.")
+    with tab2:
+        train_with_dataset()
     
     # Footer
     st.markdown("---")

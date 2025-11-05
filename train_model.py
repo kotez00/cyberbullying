@@ -1,5 +1,6 @@
 import pickle
 import numpy as np
+import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.ensemble import RandomForestClassifier
@@ -8,7 +9,7 @@ from text_processor import TextProcessor
 
 # Sample training data for cyberbullying detection
 # 1 = cyberbullying/hate speech, 0 = normal
-TRAINING_DATA = [
+DEFAULT_TRAINING_DATA = [
     # Cyberbullying examples
     ("you are so stupid and worthless", 1),
     ("nobody likes you, go away", 1),
@@ -74,16 +75,53 @@ TRAINING_DATA = [
     ("have a wonderful evening", 0),
 ]
 
-def train_models():
-    """Train and save the cyberbullying detection models"""
+def train_models(custom_data=None, combine_with_default=True):
+    """
+    Train and save the cyberbullying detection models
+    
+    Args:
+        custom_data: List of tuples (text, label) or pandas DataFrame with 'text' and 'label' columns
+                    Requirements for DataFrame:
+                    - Must have 'text' (string) and 'label' (0 or 1) columns
+                    - Labels: 0 = safe content, 1 = cyberbullying/hate speech
+                    - Minimum 4 examples required
+                    - Must contain at least one example of each class (0 and 1)
+                    - No missing values in text or label columns
+        combine_with_default: If True, combine custom data with default training data
+    
+    Returns:
+        tuple: (nb_model, rf_model, vectorizer, accuracy_dict)
+    
+    Raises:
+        ValueError: If DataFrame doesn't have required columns or data doesn't meet requirements
+    """
     print("Starting model training...")
     
     # Initialize text processor
     processor = TextProcessor()
     
+    # Prepare training data
+    if custom_data is not None:
+        # Convert DataFrame to list of tuples if needed
+        if isinstance(custom_data, pd.DataFrame):
+            if 'text' not in custom_data.columns or 'label' not in custom_data.columns:
+                raise ValueError("DataFrame must have 'text' and 'label' columns")
+            custom_data = list(zip(custom_data['text'], custom_data['label']))
+        
+        # Combine with default data if requested
+        if combine_with_default:
+            training_data = DEFAULT_TRAINING_DATA + custom_data
+            print(f"Using {len(DEFAULT_TRAINING_DATA)} default + {len(custom_data)} custom examples = {len(training_data)} total")
+        else:
+            training_data = custom_data
+            print(f"Using {len(custom_data)} custom examples only")
+    else:
+        training_data = DEFAULT_TRAINING_DATA
+        print(f"Using {len(DEFAULT_TRAINING_DATA)} default examples")
+    
     # Prepare data
-    texts = [item[0] for item in TRAINING_DATA]
-    labels = [item[1] for item in TRAINING_DATA]
+    texts = [item[0] for item in training_data]
+    labels = [item[1] for item in training_data]
     
     # Preprocess texts
     processed_texts = [processor.preprocess(text) for text in texts]
@@ -122,7 +160,14 @@ def train_models():
         pickle.dump(vectorizer, f)
     
     print("Models trained and saved successfully!")
-    return nb_model, rf_model, vectorizer
+    
+    accuracy_dict = {
+        'naive_bayes': nb_accuracy,
+        'random_forest': rf_accuracy,
+        'total_samples': len(training_data)
+    }
+    
+    return nb_model, rf_model, vectorizer, accuracy_dict
 
 if __name__ == "__main__":
     train_models()
