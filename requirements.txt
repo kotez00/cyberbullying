@@ -1,0 +1,7 @@
+streamlit>=1.51.0
+scikit-learn>=1.7.2
+lime>=0.2.0.1
+nltk>=3.9.2
+numpy>=2.3.4
+pandas>=2.3.3
+emoji>=2.15.0

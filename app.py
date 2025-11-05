@@ -1,91 +1,219 @@
 import streamlit as st
 import pickle
 import os
+import threading
 import numpy as np
 import pandas as pd
 from lime.lime_text import LimeTextExplainer
 from text_processor import TextProcessor
 from train_model import train_models
+import logging
+import traceback
+import sys
+
+# Configure basic error logging to a file so startup errors are captured in deployment logs
+logging.basicConfig(filename='error.log', level=logging.ERROR, format='%(asctime)s %(levelname)s %(message)s')
+
+def log_unhandled_exception(exc_type, exc_value, exc_traceback):
+    if issubclass(exc_type, KeyboardInterrupt):
+        # Let keyboard interrupts through
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+    tb = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+    logging.error("Unhandled exception:\n%s", tb)
+    # Also write to stderr so Streamlit Cloud captures it in logs
+    print(tb, file=sys.stderr)
+
+# Install the global exception hook
+sys.excepthook = log_unhandled_exception
 
 # Page configuration
 st.set_page_config(
     page_title="Cyberbullying Detection System",
     page_icon="🛡️",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 # Custom CSS for better styling
 st.markdown("""
 <style>
+    /* Import a modern system font with a web fallback */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+    html, body, [class*="css"]  {
+        font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+    }
+
+    /* Page container adjustments */
+    .reportview-container .main .block-container {
+        max-width: 1150px;
+        padding-top: 1.5rem;
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+
+    /* Header */
     .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #1f77b4;
-        text-align: center;
-        margin-bottom: 0.5rem;
+            font-size: 2.4rem;
+            font-weight: 800;
+            color: #ffffff;
+            text-align: left;
+            margin-bottom: 0.25rem;
+            letter-spacing: -0.4px;
+            text-shadow: 0 2px 12px rgba(2,6,23,0.6);
     }
     .sub-header {
-        text-align: center;
-        color: #666;
-        margin-bottom: 2rem;
+            text-align: left;
+            color: #cbd5e1;
+            margin-bottom: 1.25rem;
+            font-size: 1rem;
+            text-shadow: 0 1px 6px rgba(2,6,23,0.45);
     }
-    .warning-box {
-        background-color: #fff3cd;
-        border-left: 5px solid #ffc107;
-        padding: 1rem;
-        margin: 1rem 0;
-        border-radius: 5px;
+
+    /* Sidebar styling */
+    .css-1d391kg { /* sidebar container (may vary by Streamlit version) */
+        background-color: #f8fafc !important;
+        padding-top: 1rem !important;
     }
-    .danger-box {
-        background-color: #f8d7da;
-        border-left: 5px solid #dc3545;
-        padding: 1rem;
-        margin: 1rem 0;
-        border-radius: 5px;
+
+    /* Cards and result boxes */
+    .danger-box, .safe-box, .warning-box, .info-box {
+        padding: 1rem 1rem;
+        border-radius: 12px;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+        margin: 0.6rem 0;
     }
-    .safe-box {
-        background-color: #d4edda;
-        border-left: 5px solid #28a745;
-        padding: 1rem;
-        margin: 1rem 0;
-        border-radius: 5px;
+        .danger-box { background: linear-gradient(90deg, rgba(255,236,236,1), rgba(255,245,245,1)); border-left: 4px solid #ef4444; }
+        .safe-box { background: linear-gradient(90deg, rgba(240,253,244,1), rgba(247,255,250,1)); border-left: 4px solid #10b981; }
+        .warning-box { background: linear-gradient(90deg, rgba(255,250,235,1), rgba(255,253,240,1)); border-left: 4px solid #f59e0b; }
+        .info-box { background: linear-gradient(90deg, rgba(240,249,255,1), rgba(247,251,255,1)); border-left: 4px solid #06b6d4; }
+
+        /* Ensure readable text color on light cards (avoid very-light/white text being unreadable)
+             Streamlit dark themes may leave global text light; enforce dark text inside light cards */
+            .danger-box, .safe-box, .warning-box, .info-box {
+                color: #0f172a !important;
+            }
+            /* Brighten card headings for emphasis */
+            .danger-box h3, .safe-box h3, .warning-box h3, .info-box h3 {
+                color: #052f2f !important;
+                font-size: 1.25rem;
+            }
+        .danger-box h3, .safe-box h3, .warning-box h3, .info-box h3 {
+            color: #0f172a !important;
+            font-weight: 700;
+        }
+        .danger-box p, .safe-box p, .warning-box p, .info-box p,
+        .danger-box span, .safe-box span, .warning-box span, .info-box span {
+            color: #0f172a !important;
+        }
+
+        /* Make code-like chips inside cards readable */
+        .danger-box code, .safe-box code, .info-box code, .warning-box code {
+            background: rgba(15, 23, 42, 0.06) !important;
+            color: #065f46 !important;
+            padding: 0.12rem 0.4rem !important;
+            border-radius: 6px !important;
+        }
+
+        /* Improve expander content contrast */
+        .streamlit-expanderHeader, .stExpander {
+            color: #e2e8f0 !important;
+        }
+
+    /* Buttons */
+    div.stButton > button {
+        background: linear-gradient(180deg,#0ea5a9,#0284c7) !important;
+        color: white !important;
+        border: none !important;
+        padding: 0.55rem 1rem !important;
+        border-radius: 10px !important;
+        box-shadow: 0 6px 18px rgba(2,6,23,0.08) !important;
+        font-weight: 600 !important;
     }
-    .info-box {
-        background-color: #d1ecf1;
-        border-left: 5px solid #17a2b8;
-        padding: 1rem;
-        margin: 1rem 0;
-        border-radius: 5px;
+    div.stButton > button:hover {
+        transform: translateY(-1px);
     }
+
+    /* Text area styling */
+    textarea {
+        border-radius: 8px !important;
+        padding: 0.75rem !important;
+    }
+
+    /* Metrics and small UI tweaks */
+    .stMetric { padding: 0.6rem; }
+    .css-1v0mbdj.e16nr0p30 { /* adjust expander header size */
+        font-size: 0.95rem;
+    }
+
+    /* Smaller helper text */
+    .caption { color: #64748b; }
 </style>
 """, unsafe_allow_html=True)
 
 # Initialize session state
 if 'models_loaded' not in st.session_state:
+    # Keep model objects None initially to avoid heavy work at import time on Streamlit servers
     st.session_state.models_loaded = False
     st.session_state.nb_model = None
     st.session_state.rf_model = None
     st.session_state.vectorizer = None
-    st.session_state.processor = TextProcessor()
-    st.session_state.explainer = LimeTextExplainer(class_names=['Safe', 'Cyberbullying'])
+    st.session_state.processor = None
+    st.session_state.explainer = None
+    st.session_state.training_in_progress = False
 
 def load_models():
     """Load trained models or train new ones if they don't exist"""
-    if not os.path.exists('nb_model.pkl') or not os.path.exists('rf_model.pkl'):
-        with st.spinner('Training models for the first time... This may take a moment.'):
-            from train_model import train_models
-            train_models()
-    
-    with open('nb_model.pkl', 'rb') as f:
-        st.session_state.nb_model = pickle.load(f)
-    
-    with open('rf_model.pkl', 'rb') as f:
-        st.session_state.rf_model = pickle.load(f)
-    
-    with open('vectorizer.pkl', 'rb') as f:
-        st.session_state.vectorizer = pickle.load(f)
-    
-    st.session_state.models_loaded = True
+    # If models already exist on disk, load them immediately (fast).
+    if os.path.exists('nb_model.pkl') and os.path.exists('rf_model.pkl') and os.path.exists('vectorizer.pkl'):
+        try:
+            with open('nb_model.pkl', 'rb') as f:
+                st.session_state.nb_model = pickle.load(f)
+            with open('rf_model.pkl', 'rb') as f:
+                st.session_state.rf_model = pickle.load(f)
+            with open('vectorizer.pkl', 'rb') as f:
+                st.session_state.vectorizer = pickle.load(f)
+            # Ensure processor and explainer exist
+            if st.session_state.processor is None:
+                st.session_state.processor = TextProcessor()
+            if st.session_state.explainer is None:
+                st.session_state.explainer = LimeTextExplainer(class_names=['Safe', 'Cyberbullying'])
+            st.session_state.models_loaded = True
+            st.session_state.training_in_progress = False
+        except Exception as e:
+            st.error(f"Failed to load models: {e}")
+            st.session_state.models_loaded = False
+            st.session_state.training_in_progress = False
+        return
+
+    # If model files are missing, start training in a background thread so Streamlit can finish startup quickly.
+    if not st.session_state.training_in_progress:
+        st.session_state.training_in_progress = True
+
+        def _train_and_load():
+            try:
+                train_models()
+                # After training completes, load the saved pickles
+                with open('nb_model.pkl', 'rb') as f:
+                    st.session_state.nb_model = pickle.load(f)
+                with open('rf_model.pkl', 'rb') as f:
+                    st.session_state.rf_model = pickle.load(f)
+                with open('vectorizer.pkl', 'rb') as f:
+                    st.session_state.vectorizer = pickle.load(f)
+                if st.session_state.processor is None:
+                    st.session_state.processor = TextProcessor()
+                if st.session_state.explainer is None:
+                    st.session_state.explainer = LimeTextExplainer(class_names=['Safe', 'Cyberbullying'])
+                st.session_state.models_loaded = True
+            except Exception as e:
+                # Write error to session so UI can show it
+                st.session_state.training_error = str(e)
+                st.session_state.models_loaded = False
+            finally:
+                st.session_state.training_in_progress = False
+
+        thread = threading.Thread(target=_train_and_load, daemon=True)
+        thread.start()
 
 def predict_text(text, model_type='nb'):
     """Predict if text contains cyberbullying"""
@@ -105,24 +233,27 @@ def predict_text(text, model_type='nb'):
 def get_lime_explanation(text, model_type='nb'):
     """Generate LIME explanation for the prediction"""
     processed_text = st.session_state.processor.preprocess(text)
-    
+
     if model_type == 'nb':
         model = st.session_state.nb_model
     else:
         model = st.session_state.rf_model
-    
+
     def predictor(texts):
         processed = [st.session_state.processor.preprocess(t) for t in texts]
         vectorized = st.session_state.vectorizer.transform(processed)
         return model.predict_proba(vectorized)
-    
+
+    # Use fewer samples by default to improve responsiveness.
+    # If users need more precise explanations they can increase this value.
     explanation = st.session_state.explainer.explain_instance(
-        text, 
-        predictor, 
-        num_features=10,
-        top_labels=1
+        text,
+        predictor,
+        num_features=6,
+        top_labels=1,
+        num_samples=500
     )
-    
+
     return explanation
 
 def display_action_suggestions(is_cyberbullying, confidence):
@@ -328,6 +459,9 @@ def main():
     # Header
     st.markdown('<div class="main-header">🛡️ Cyberbullying Detection System</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-header">AI-powered text analysis to identify and prevent cyberbullying</div>', unsafe_allow_html=True)
+    # Show background training status if models are being prepared
+    if st.session_state.get('training_in_progress', False):
+        st.info("🔄 Models are being prepared in the background. Some features (analysis/explanations) may be unavailable until training completes.")
     
     # Load models
     if not st.session_state.models_loaded:
@@ -380,11 +514,19 @@ def main():
             st.rerun()
         
         if analyze_button and user_input.strip():
-            model_type = 'nb' if model_choice == "Naive Bayes" else 'rf'
-            
-            with st.spinner('Analyzing text...'):
-                # Make prediction
-                prediction, probabilities, processed_text = predict_text(user_input, model_type)
+            # Ensure models are loaded before attempting prediction
+            if not st.session_state.models_loaded:
+                # Trigger background loading/training if not already running
+                load_models()
+                if st.session_state.training_in_progress:
+                    st.warning("Models are being prepared. Training is running in the background — try again in a moment.")
+                else:
+                    st.error("Models are not available right now. Please try again shortly or check the logs.")
+            else:
+                model_type = 'nb' if model_choice == "Naive Bayes" else 'rf'
+                with st.spinner('Analyzing text...'):
+                    # Make prediction
+                    prediction, probabilities, processed_text = predict_text(user_input, model_type)
                 is_cyberbullying = prediction == 1
                 confidence = probabilities[1] if is_cyberbullying else probabilities[0]
                 
@@ -430,11 +572,37 @@ def main():
                 st.markdown("## 🔍 AI Decision Explanation")
                 st.write("The highlighted words below show which parts of the text influenced the AI's decision:")
                 
-                with st.spinner('Generating explanation...'):
-                    explanation = get_lime_explanation(user_input, model_type)
-                    
-                    # Get explanation as list
-                    exp_list = explanation.as_list(label=1)
+                # Explanations can be slow. Allow the user to opt-in to generating them.
+                show_explanation = st.checkbox("Generate AI explanation (may be slow)", value=False)
+
+                if show_explanation:
+                    with st.spinner('Generating explanation...'):
+                        explanation = get_lime_explanation(user_input, model_type)
+
+                        # Determine which label the explanation contains (LIME may only compute the top label)
+                        # Prefer the model prediction if available, otherwise fall back to the first available label
+                        try:
+                            available_labels = list(explanation.local_exp.keys()) if hasattr(explanation, 'local_exp') else []
+                        except Exception:
+                            available_labels = []
+
+                        if not available_labels and hasattr(explanation, 'available_labels'):
+                            try:
+                                available_labels = explanation.available_labels()
+                            except Exception:
+                                available_labels = []
+
+                        if not available_labels:
+                            st.info("No explanation available for this input.")
+                            exp_list = []
+                            label_to_use = None
+                        else:
+                            label_to_use = prediction if prediction in available_labels else available_labels[0]
+                            # Get explanation as list for the selected label
+                            exp_list = explanation.as_list(label=label_to_use)
+                else:
+                    exp_list = []
+                    label_to_use = None
                     
                     # Display word importance
                     st.markdown("### Key Words and Their Impact")
@@ -460,8 +628,11 @@ def main():
                     
                     # Display HTML explanation
                     with st.expander("📄 View Detailed Explanation"):
-                        html_exp = explanation.as_html(labels=(1,))
-                        st.components.v1.html(html_exp, height=400, scrolling=True)
+                        if label_to_use is None:
+                            st.write("No detailed explanation available.")
+                        else:
+                            html_exp = explanation.as_html(labels=(label_to_use,))
+                            st.components.v1.html(html_exp, height=400, scrolling=True)
                 
                 # Action Suggestions
                 st.markdown("---")
